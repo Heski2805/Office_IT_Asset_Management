@@ -76,3 +76,7 @@ Office_IT_Asset_Management/
 ![View Assets After Deletion - Part 1](screenshots/07_view_asset_after_delete_1.png)
 
 ![View Assets After Deletion - Part 2](screenshots/07_view_asset_after_delete_2.png)
+
+## Project Status
+
+Version 1.0 - Initial Release
