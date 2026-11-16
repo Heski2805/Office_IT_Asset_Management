@@ -80,3 +80,5 @@ Office_IT_Asset_Management/
 ## Project Status
 
 Version 1.0 - Initial Release
+
+This project is maintained as a learning project.
