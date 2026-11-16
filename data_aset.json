@@ -1,0 +1,26 @@
+[
+    {
+        "id": 1,
+        "nama": "Laptop Lenovo",
+        "harga": 8000000,
+        "stok": 5,
+        "status": "Available",
+        "lokasi": "Finance"
+    },
+    {
+        "id": 2,
+        "nama": "Monitor Samsung",
+        "harga": 2500000,
+        "stok": 3,
+        "status": "Available",
+        "lokasi": "IT"
+    },
+    {
+        "id": 3,
+        "nama": "Printer Epson",
+        "harga": 1800000,
+        "stok": 2,
+        "status": "Available",
+        "lokasi": "Finance"
+    }
+]
