@@ -1,21 +1,30 @@
-import json 
 import os
-file_path = os.path.join(os.path.dirname(__file__), "data_aset.json")
+import mysql.connector
+from dotenv import load_dotenv
 
-try:
-    with open(file_path, "r", encoding="utf-8") as file:
-        data_aset = json.load(file)
+load_dotenv()
 
-except FileNotFoundError:
-    print("File data_aset.json tidak ditemukan!")
-    data_aset = []
+def connect_db():
+    try:
+        db = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password=os.getenv("DB_PASSWORD"),
+            database="latihan_mysql"
+        )
 
-    with open(file_path, "w", encoding="utf-8") as file:
-        json.dump(data_aset, file, indent=4)
+        print("Koneksi database berhasil!")
+        return db
 
-except json.JSONDecodeError:
-    print("File data_aset.json tidak valid!")
-    data_aset = []
+    except mysql.connector.Error as err:
+        print(f"Gagal menghubungkan database: {err}")
+        return None
+
+db = connect_db()
+
+if db is None:
+    print("Aplikasi tidak dapat dijalankan karena koneksi database gagal.")
+    raise SystemExit(1)
 
 while True:
     print("\n=== OFFICE IT ASSET MANAGEMENT ===")
@@ -41,29 +50,15 @@ while True:
 # Untuk keluar menu
     if pilihan == 6:
         print("Terima kasih telah menggunakan aplikasi!")
+
+        if db and db.is_connected():
+            db.close()
+            print("Koneksi database ditutup.")
+
         break
 
 # Untuk menambahkan aset baru
     elif pilihan == 1:
-        while True:
-            try:
-                id_aset = int(input("Masukkan ID aset : "))
-                id_ditemukan = False
-                
-            except ValueError:
-                print("ID harus berupa angka, coba lagi.")
-                continue
-
-            for barang in data_aset:
-
-                if barang["id"] == id_aset:
-                    id_ditemukan = True
-                    print("ID aset sudah ada, silakan masukkan ID yang lain.")
-                    break
-            if id_ditemukan:
-                continue
-            else:
-                break
 
         while True:
             nama = input("Masukkan nama aset : ")
@@ -138,18 +133,27 @@ while True:
 
         lokasi = lokasi.strip()
 
+        cursor = db.cursor()
 
-        data_aset.append({
-            "id": id_aset,
-            "nama": nama,
-            "harga": harga,
-            "stok": stok,
-            "status": status,
-            "lokasi": lokasi
-        })
-        with open(file_path, "w", encoding="utf-8") as file:
-            json.dump(data_aset, file, indent=4)
-        print("Aset berhasil ditambahkan!")
+        query = """
+            INSERT INTO assets (nama, harga, stok, status, lokasi)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+
+        values = (nama, harga, stok, status, lokasi)
+        try:
+            cursor.execute(query, values)
+            db.commit()
+
+            print("Aset berhasil ditambahkan!")
+            print("ID aset:", cursor.lastrowid)
+
+        except mysql.connector.Error as err:
+            db.rollback()
+            print(f"Gagal menambahkan aset: {err}")
+
+        finally:
+            cursor.close()
 
 # Untuk mencari aset berdasarkan ID
     elif pilihan == 2:
@@ -163,21 +167,31 @@ while True:
 
             break
 
-        id_ditemukan = False
+        cursor = db.cursor(dictionary=True)
 
-        for barang in data_aset:
-             if barang["id"] == id_cari:
-                  id_ditemukan = True
-                  print("Aset ditemukan!\n")
-                  print("ID:", barang["id"])
-                  print("Nama:", barang["nama"])
-                  print("Harga:", barang["harga"])
-                  print("Stok:", barang["stok"])
-                  print("Status:", barang["status"])
-                  print("Lokasi:", barang["lokasi"])
-                  break
-        if not id_ditemukan:
-            print("Aset tidak ditemukan.")
+        try:
+            cursor.execute(
+                "SELECT * FROM assets WHERE id = %s",
+                (id_cari,)
+            )
+
+            barang = cursor.fetchone()
+
+            if barang:
+                print("Aset ditemukan!\n")
+                print("ID:", barang["id"])
+                print("Nama:", barang["nama"])
+                print("Harga:", barang["harga"])
+                print("Stok:", barang["stok"])
+                print("Status:", barang["status"])
+                print("Lokasi:", barang["lokasi"])
+            else:
+                print("Aset tidak ditemukan.")
+        except mysql.connector.Error as err:
+            print(f"Gagal mencari aset: {err}")
+
+        finally:
+            cursor.close()
             
 # Untuk mengubah stok aset
     elif pilihan == 3:
@@ -191,11 +205,17 @@ while True:
             
             break 
 
-        id_ditemukan = False
+        cursor = db.cursor(dictionary=True)
 
-        for barang in data_aset:
-            if barang["id"] == id_update:
-                id_ditemukan = True
+        try:
+            cursor.execute(
+                "SELECT * FROM assets WHERE id = %s",
+                (id_update,)
+            )
+
+            barang = cursor.fetchone()
+
+            if barang:
                 print("Aset ditemukan!\n")
                 print("ID:", barang["id"])
                 print("Nama:", barang["nama"])
@@ -203,9 +223,11 @@ while True:
                 print("Stok:", barang["stok"])
                 print("Status:", barang["status"])
                 print("Lokasi:", barang["lokasi"])
+
                 while True:
                     try:
                         stok_baru = int(input("Masukkan stok baru: "))
+
                         if stok_baru < 0:
                             print("Stok tidak boleh negatif!")
                             continue
@@ -216,14 +238,24 @@ while True:
                         print("Stok harus berupa angka!")
                         continue
 
-                barang["stok"] = stok_baru
+                cursor.execute(
+                    "UPDATE assets SET stok = %s WHERE id = %s",
+                    (stok_baru, id_update)
+                )
+
+                db.commit()
+
                 print("Stok berhasil diperbarui!")
-                print("Stok sekarang:", barang["stok"])
-                with open(file_path, "w", encoding="utf-8") as file:
-                    json.dump(data_aset, file, indent=4)
-                break
-        if not id_ditemukan:
-            print("Aset tidak ditemukan!")
+                print("Stok sekarang:", stok_baru)
+
+            else:
+                print("Aset tidak ditemukan!")
+
+        except mysql.connector.Error as err:
+            db.rollback()
+            print(f"Gagal memperbarui aset: {err}")
+        finally:
+            cursor.close()
 
 # Untuk menghapus aset
     elif pilihan == 4:
@@ -234,36 +266,88 @@ while True:
             except ValueError:
                 print("ID harus berupa angka, coba lagi.")
                 continue
-                    
+
             break
 
-        id_ditemukan = False
+        cursor = db.cursor(dictionary=True)
 
-        for barang in data_aset:
-            if barang["id"] == id_hapus:
-                id_ditemukan = True
-                data_aset.remove(barang)
-                print("Aset berhasil dihapus!")
-                with open(file_path, "w", encoding="utf-8") as file:
-                    json.dump(data_aset, file, indent=4)
-                break
-        if not id_ditemukan:
-            print("Aset tidak ditemukan!")
+        try:
+            # Mencari aset berdasarkan ID
+            cursor.execute(
+                "SELECT * FROM assets WHERE id = %s",
+                (id_hapus,)
+            )
 
+            aset = cursor.fetchone()
+
+            if aset is None:
+                print("Aset tidak ditemukan!")
+
+            else:
+                print("\nAset ditemukan!")
+                print("ID     :", aset["id"])
+                print("Nama   :", aset["nama"])
+                print("Harga  :", aset["harga"])
+                print("Stok   :", aset["stok"])
+                print("Status :", aset["status"])
+                print("Lokasi :", aset["lokasi"])
+
+                while True:
+                    konfirmasi = input(
+                        "\nApakah kamu yakin ingin menghapus aset ini? (Y/N): "
+                    ).strip().upper()
+
+                    if konfirmasi == "Y":
+                        cursor.execute(
+                            "DELETE FROM assets WHERE id = %s",
+                            (id_hapus,)
+                        )
+
+                        db.commit()
+                        print("Aset berhasil dihapus!")
+                        break
+
+                    elif konfirmasi == "N":
+                        print("Penghapusan aset dibatalkan.")
+                        break
+
+                    else:
+                        print("Input tidak valid! Masukkan Y atau N.")
+
+        except mysql.connector.Error as err:
+            db.rollback()
+            print(f"Gagal menghapus aset: {err}")
+
+        finally:
+            cursor.close()
 
 # Untuk menampilkan semua aset
     elif pilihan == 5:
         print("\n=== OFFICE IT ASSET MANAGEMENT ===\n")
 
-        if not data_aset:
-            print("Belum ada aset yang terdaftar.")
+        cursor = None
 
-        else:
-            for barang in data_aset:
-                    print("ID:", barang["id"])
-                    print("Nama:", barang["nama"])
-                    print("Harga:", barang["harga"])
-                    print("Stok:", barang["stok"])
-                    print("Status:", barang["status"])
-                    print("Lokasi:", barang["lokasi"])
-                    print("\n------------------------")
+        try:
+            cursor = db.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM assets")
+            hasil_aset = cursor.fetchall()
+
+            if not hasil_aset:
+                print("Belum ada aset yang terdaftar.")
+
+            else:
+                for barang in hasil_aset:
+                        print("ID:", barang["id"])
+                        print("Nama:", barang["nama"])
+                        print("Harga:", barang["harga"])
+                        print("Stok:", barang["stok"])
+                        print("Status:", barang["status"])
+                        print("Lokasi:", barang["lokasi"])
+                        print("\n------------------------")
+
+        except mysql.connector.Error as err:
+            print(f"Gagal menampilkan aset: {err}")
+        
+        finally:
+            if cursor is not None:
+                cursor.close()
